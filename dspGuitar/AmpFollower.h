@@ -35,5 +35,6 @@ private:
 	int sampRate;
 	int rmsLevel;
 	int peakLevel;
+        int prevPeakLevel;
 };
 #endif

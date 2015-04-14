@@ -11,14 +11,18 @@
 #include  <OLED.h>
 #include  <filter.h>
 
+using namespace FixedLib;
 //-----------Global Variables---------------------------
 const int BufferLength = 256;
-  
+const int NoiseLength = 2048;
+
 //input and output buffers
 int *InputLeft;  
 int *InputRight;
 int *OutputLeft;
 int *OutputRight;
+int noiseIndex = 0;
+int *noiseReader = noise;
 
 //level tracker to follow envelope of guitar
 AmpFollower guitarEnvelope(48000);
@@ -44,6 +48,7 @@ void setup()
   //set up the audio library in non loop back mode
   status = AudioC.Audio(TRUE, BufferLength, BufferLength);
   AudioC.setSamplingRate(SAMPLING_RATE_48_KHZ);
+  //AudioC.setInputGain(10, 10);
  
  //check to make sure the audio has been set up properly and if not print warning
   if(status == 0)
@@ -51,13 +56,12 @@ void setup()
       disp.print("Guitar!");
       AudioC.attachIntr(dmaIsr);
   }
-  
 }
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
-  
+  // put your main code here, to run repeatedly: 
+  //int x = sin(20);
 }
 
 /*--------Processing Function----------------------
@@ -71,10 +75,16 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
     //for now just pass input to output 
     for(int i = 0; i < BufferLength; i++)
     {
+        //calculate signal envelopes
         rmsEnv = guitarEnvelope.rmsEnvelope(inputLeft[i], inputRight[i]);
         peakEnv = guitarEnvelope.peakEnvelope(inputLeft[i], inputRight[i]);
-        outputLeft[i] = inputLeft[i];
-        outputRight[i] = inputRight[i];     
+        
+        //apply these envelopes to our noise buffer
+        outputLeft[i] = mult16(noiseReader[noiseIndex], peakEnv);
+        outputRight[i] = mult16(noiseReader[noiseIndex], peakEnv);
+   
+       //increment our noise buffer
+       noiseIndex = (noiseIndex + 1) % NOISELENGTH;     
     }  
 }
 
