@@ -8,6 +8,7 @@
 
 #include  "Audio_new.h"
 #include  "AmpFollower.h"
+#include  "Pitchtrack.h"
 #include  <OLED.h>
 #include  <filter.h>
 
@@ -21,11 +22,19 @@ int *InputLeft;
 int *InputRight;
 int *OutputLeft;
 int *OutputRight;
+
+//variables to read through our noise buffer for testing amplitude tracker
 int noiseIndex = 0;
 int *noiseReader = noise;
 
+//pitch to be found
+int currentPitch;
+
 //level tracker to follow envelope of guitar
 AmpFollower guitarEnvelope(48000);
+
+//instance of our pitch tracker class
+Pitchtrack guitarPitch(48000);
 //------------------------------------------------------
 void setup()
 {
@@ -72,6 +81,10 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
     //variables for our envelopes
     int rmsEnv;
     int peakEnv;
+    
+    //get the pitch of the guitar
+    currentPitch = guitarPitch.findPitch(inputLeft, BufferLength);
+        
     //for now just pass input to output 
     for(int i = 0; i < BufferLength; i++)
     {
