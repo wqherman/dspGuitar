@@ -42,6 +42,11 @@ void Pitchtrack::getFFT()
     {
         INFFT[i] = mult16(downSamped[i], window[i]);
     }
+    //make sure the rest of the input fft array is zero
+    for(int i = downSampLength; i < fftLength; i++)
+    {
+        INFFT[i] = 0;
+    }
     
     //take the real fft
     //TODO: figure our the ordering of the fft, wording in documentation is a little confusing
@@ -58,12 +63,14 @@ int Pitchtrack::findPitch(int *input, int bufferLength)
 
     //calculate the pitch based on the fft bins 
     int maxBin = 0;
-    for(int i = 0; i < fftLength; i++)
+    for(int i = 0; i < fftLength; i+=2)
     {
         if(INFFT[i] > INFFT[maxBin])
             maxBin = i;
     } 
     pitch = mult16(maxBin, binFreq);
     
-    return pitch;
+    //return the max bin, this is what we'll use to look up the corresponding
+    //epsilon for the magic circle algorithm
+    return maxBin;
 }

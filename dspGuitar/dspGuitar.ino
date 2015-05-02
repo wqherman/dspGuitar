@@ -9,6 +9,7 @@
 #include  "Audio_new.h"
 #include  "AmpFollower.h"
 #include  "Pitchtrack.h"
+#include  "SinOsc.h"
 #include  <OLED.h>
 #include  <filter.h>
 
@@ -27,14 +28,23 @@ int *OutputRight;
 int noiseIndex = 0;
 int *noiseReader = noise;
 
-//pitch to be found
-int currentPitch;
+//fft bin of the found pitch
+int currentPitchBin;
 
 //level tracker to follow envelope of guitar
 AmpFollower guitarEnvelope(48000);
 
 //instance of our pitch tracker class
 Pitchtrack guitarPitch(48000);
+
+//our sinoscillators
+/*NOTE:
+  BY CREATING AN ARRAY OF THESE AND INCREMENTING THROUGH THE ARRAY EVERYTIME
+  A NEW PITCH IS CALCULATED, WE COULD POENTIALLY MAKE THIS POLYPHONIC
+  */
+SinOsc carrier(48000, 80);
+SinOsc modulator(48000, 80);
+
 //------------------------------------------------------
 void setup()
 {
@@ -47,7 +57,7 @@ void setup()
   disp.clear();
   disp.flip();
   disp.setline(1);
-  
+  carrier.changeFreq(1887);
   //allocate space for our input and output buffers
   InputLeft = new int[BufferLength];
   InputRight = new int[BufferLength];
@@ -58,6 +68,7 @@ void setup()
   status = AudioC.Audio(TRUE, BufferLength, BufferLength);
   AudioC.setSamplingRate(SAMPLING_RATE_48_KHZ);
   //AudioC.setInputGain(10, 10);
+  AudioC.setOutputVolume(80, 80);
  
  //check to make sure the audio has been set up properly and if not print warning
   if(status == 0)
@@ -69,8 +80,8 @@ void setup()
 
 void loop()
 {
-  // put your main code here, to run repeatedly: 
-  //int x = sin(20);
+  // probably nothing to do here, unless knobs are involved 
+  
 }
 
 /*--------Processing Function----------------------
@@ -83,8 +94,11 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
     int peakEnv;
     
     //get the pitch of the guitar
-    currentPitch = guitarPitch.findPitch(inputLeft, BufferLength);
-        
+    //currentPitchBin = guitarPitch.findPitch(inputLeft, BufferLength);
+    currentPitchBin = 100;
+    //set sine wave frequency  
+    //modulator.changeFreq(944);
+    carrier.changeFreq(currentPitchBin);  
     //for now just pass input to output 
     for(int i = 0; i < BufferLength; i++)
     {
@@ -92,9 +106,13 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
         rmsEnv = guitarEnvelope.rmsEnvelope(inputLeft[i], inputRight[i]);
         peakEnv = guitarEnvelope.peakEnvelope(inputLeft[i], inputRight[i]);
         
-        //apply these envelopes to our noise buffer
-        outputLeft[i] = mult16(noiseReader[noiseIndex], peakEnv);
-        outputRight[i] = mult16(noiseReader[noiseIndex], peakEnv);
+        //dtermine the frequency as a function of our modulator and calculated pitch
+        //int modulatedFreq = 1887 + mult16(modulator.nextSampleMagic(), 2000);
+        
+        int sinValue = carrier.nextSampleMagic();
+        
+        outputLeft[i] = mult16(sinValue, inputLeft[i]);//mult16(noiseReader[noiseIndex], 5000);
+        outputRight[i] = mult16(sinValue, inputRight[i]);//mult16(oscVal, 32768);//mult16(noiseReader[noiseIndex], peakEnv);
    
        //increment our noise buffer
        noiseIndex = (noiseIndex + 1) % NOISELENGTH;     

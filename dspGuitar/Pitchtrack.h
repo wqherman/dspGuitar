@@ -15,8 +15,8 @@ public:
     ~Pitchtrack();
     
     /*function to find the fundamental pitch. This will look for the fft bin
-      with the highest amplitude, convert it to a frequency in Hz and return
-      that frequency
+      with the highest amplitude and return that bin number. we do this because
+      we'll use the bin number to look up the corresponding epsilon value
     */
     int findPitch(int *inBuff, int bufferLength);
     
