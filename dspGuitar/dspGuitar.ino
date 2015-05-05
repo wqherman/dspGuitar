@@ -30,6 +30,7 @@ int *noiseReader = noise;
 
 //fft bin of the found pitch
 int currentPitchBin;
+int modDepth;        //depth of the frequency modulation
 
 //level tracker to follow envelope of guitar
 AmpFollower guitarEnvelope(48000);
@@ -68,7 +69,7 @@ void setup()
   status = AudioC.Audio(TRUE, BufferLength, BufferLength);
   AudioC.setSamplingRate(SAMPLING_RATE_48_KHZ);
   //AudioC.setInputGain(10, 10);
-  AudioC.setOutputVolume(80, 80);
+  AudioC.setOutputVolume(85, 85);
  
  //check to make sure the audio has been set up properly and if not print warning
   if(status == 0)
@@ -96,9 +97,13 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
     //get the pitch of the guitar
     //currentPitchBin = guitarPitch.findPitch(inputLeft, BufferLength);
     currentPitchBin = 100;
+    
     //set sine wave frequency  
-    //modulator.changeFreq(944);
+    modulator.changeFreq(60);
     carrier.changeFreq(currentPitchBin);  
+    
+    //set modulation depth
+    modDepth = 50;
     //for now just pass input to output 
     for(int i = 0; i < BufferLength; i++)
     {
@@ -108,11 +113,12 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
         
         //dtermine the frequency as a function of our modulator and calculated pitch
         //int modulatedFreq = 1887 + mult16(modulator.nextSampleMagic(), 2000);
-        
+        int modValue = mult16(modDepth, modulator.nextSampleMagic());
+        carrier.changeFreq(currentPitchBin + modValue);
         int sinValue = carrier.nextSampleMagic();
         
-        outputLeft[i] = mult16(sinValue, inputLeft[i]);//mult16(noiseReader[noiseIndex], 5000);
-        outputRight[i] = mult16(sinValue, inputRight[i]);//mult16(oscVal, 32768);//mult16(noiseReader[noiseIndex], peakEnv);
+        outputLeft[i] = sinValue;//mult16(sinValue, inputLeft[i]);
+        outputRight[i] = sinValue;//mult16(sinValue, inputRight[i]);
    
        //increment our noise buffer
        noiseIndex = (noiseIndex + 1) % NOISELENGTH;     

@@ -9,7 +9,7 @@ SinOsc::SinOsc(long fs, int freq = 0)
     myFreq = freq;
     
     //initialize vairables for magic circle
-    magicPrevX = 32250;
+    magicPrevX = 32000;
     magicPrevY = 0;
     magicEpsilon = 1887;
     

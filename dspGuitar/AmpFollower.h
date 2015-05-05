@@ -2,7 +2,7 @@
 #define AMPFOLLOWER_H
 
 #include  "FixedLib.h"
-#include  <Dsplib.h>
+#include  <dsplib.h>
 #include  <math.h>
 using namespace FixedLib;
 
