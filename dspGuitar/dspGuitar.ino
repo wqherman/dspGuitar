@@ -2,7 +2,7 @@
   This program uses the dsp sheild as an embedded processor for an electric guitar.
   The dsp shield can be switched to implement several effects:
       ->synth guitar? (tracks envelope and pitch and plays synthesized tones)
-      ->granulator? (takes guitar input and creates granular synthesis backup with it)
+      
       
 */
 
@@ -29,8 +29,11 @@ int noiseIndex = 0;
 int *noiseReader = noise;
 
 //fft bin of the found pitch
-int currentPitchBin;
+int carrierPitchBin;  //bin number of our carrier (corresponds to location of epsilon)
+int modPitchBin;      //bin number of modulator
 int modDepth;        //depth of the frequency modulation
+int buffCounter;    //a buffer counter to make sure our pitch doesn't change too fast
+int wetDry;        //controls the wet dry mix of the guitar and the fm modulated signal
 
 //level tracker to follow envelope of guitar
 AmpFollower guitarEnvelope(48000);
@@ -41,10 +44,15 @@ Pitchtrack guitarPitch(48000);
 //our sinoscillators
 /*NOTE:
   BY CREATING AN ARRAY OF THESE AND INCREMENTING THROUGH THE ARRAY EVERYTIME
-  A NEW PITCH IS CALCULATED, WE COULD POENTIALLY MAKE THIS POLYPHONIC
+  A NEW PITCH IS CALCULATED, WE COULD POENTIALLY MAKE THIS SEMI-POLYPHONIC
   */
 SinOsc carrier(48000, 80);
 SinOsc modulator(48000, 80);
+
+//setup pins and values for pots
+int faderPin = 2;
+int knobLPin = 1;
+int knobRPin = 3;
 
 //------------------------------------------------------
 void setup()
@@ -68,8 +76,8 @@ void setup()
   //set up the audio library in non loop back mode
   status = AudioC.Audio(TRUE, BufferLength, BufferLength);
   AudioC.setSamplingRate(SAMPLING_RATE_48_KHZ);
-  //AudioC.setInputGain(10, 10);
-  AudioC.setOutputVolume(85, 85);
+  AudioC.setInputGain(40, 40);
+  AudioC.setOutputVolume(75, 75);
  
  //check to make sure the audio has been set up properly and if not print warning
   if(status == 0)
@@ -77,12 +85,24 @@ void setup()
       disp.print("Guitar!");
       AudioC.attachIntr(dmaIsr);
   }
+  
+  //set initial values for moddepth and wetdry mix
+  wetDry = 32760;
+  modDepth = 30;
+  carrierPitchBin = 80;
+  modPitchBin = 50;
+  
+  //set sine wave frequency  
+  modulator.changeFreq(modPitchBin);
+  carrier.changeFreq(carrierPitchBin);
 }
 
 void loop()
-{
-  // probably nothing to do here, unless knobs are involved 
-  
+{  
+  //read values from our pots
+  carrierPitchBin = (int)(analogRead(faderPin));
+  wetDry = 20000 + (int)(analogRead(knobLPin) * 10);
+  modPitchBin = (int)analogRead(knobRPin);
 }
 
 /*--------Processing Function----------------------
@@ -92,36 +112,24 @@ void processData(int* inputLeft, int* inputRight, int *outputLeft, int *outputRi
 {
     //variables for our envelopes
     int rmsEnv;
-    int peakEnv;
-    
-    //get the pitch of the guitar
-    //currentPitchBin = guitarPitch.findPitch(inputLeft, BufferLength);
-    currentPitchBin = 100;
-    
-    //set sine wave frequency  
-    modulator.changeFreq(60);
-    carrier.changeFreq(currentPitchBin);  
-    
-    //set modulation depth
-    modDepth = 50;
+    int peakEnv;  
+
     //for now just pass input to output 
     for(int i = 0; i < BufferLength; i++)
-    {
-        //calculate signal envelopes
-        rmsEnv = guitarEnvelope.rmsEnvelope(inputLeft[i], inputRight[i]);
-        peakEnv = guitarEnvelope.peakEnvelope(inputLeft[i], inputRight[i]);
-        
+    {   
         //dtermine the frequency as a function of our modulator and calculated pitch
-        //int modulatedFreq = 1887 + mult16(modulator.nextSampleMagic(), 2000);
+        modulator.changeFreq(modPitchBin);      //be careful with chaning modulator frequencies can lead to ugliness
         int modValue = mult16(modDepth, modulator.nextSampleMagic());
-        carrier.changeFreq(currentPitchBin + modValue);
+        carrier.changeFreq(carrierPitchBin + modValue);
+        
+        //generate modulated sine wave
         int sinValue = carrier.nextSampleMagic();
         
-        outputLeft[i] = sinValue;//mult16(sinValue, inputLeft[i]);
-        outputRight[i] = sinValue;//mult16(sinValue, inputRight[i]);
-   
-       //increment our noise buffer
-       noiseIndex = (noiseIndex + 1) % NOISELENGTH;     
+        //modulate our input signal, then envelope it with the envelope of the guitar to try and get rid of background noise
+        outputLeft[i] = mult16(wetDry, mult16(abs16(inputLeft[i]), mult16(inputLeft[i], sinValue))); 
+        outputRight[i] = mult16(wetDry, mult16(abs16(inputLeft[i]), mult16(inputLeft[i], sinValue))); 
+        outputLeft[i] += mult16(MAX16 - wetDry, inputLeft[i]);
+        outputRight[i] += mult16(MAX16 - wetDry, inputLeft[i]);
     }  
 }
 

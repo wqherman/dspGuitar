@@ -27,6 +27,7 @@ public:
 private:
     int sampRate;
     int pitch;
+    int prevPitch;
     
     int downFactor;    //the downsampling factor
     int downSampLength;
